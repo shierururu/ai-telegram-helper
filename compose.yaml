@@ -10,7 +10,7 @@ x-application: &application
 
 services:
   db:
-    image: postgres:17@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
+    image: &postgres-image postgres:17@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
     environment:
       POSTGRES_DB: alfa_course
       POSTGRES_USER: postgres
@@ -20,17 +20,38 @@ services:
       ALFA_WORKER_DB_PASSWORD: ${ALFA_WORKER_DB_PASSWORD:-alfa-dev-worker-5e8c}
     volumes:
       - database:/var/lib/postgresql/data
+      - database-socket:/var/run/postgresql
       - ./deployment/postgres/001-roles.sh:/docker-entrypoint-initdb.d/001-roles.sh:ro
     healthcheck:
       test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U postgres -d alfa_course']
       interval: 2s
       timeout: 3s
       retries: 30
+  database-roles:
+    image: *postgres-image
+    depends_on:
+      db:
+        condition: service_healthy
+    # Only db and this maintenance service can access the administrative local socket.
+    network_mode: none
+    environment:
+      PGHOST: /var/run/postgresql
+      POSTGRES_DB: alfa_course
+      POSTGRES_USER: postgres
+      ALFA_MIGRATOR_DB_PASSWORD: ${ALFA_MIGRATOR_DB_PASSWORD:-alfa-dev-migrator-4b2a}
+      ALFA_BOT_DB_PASSWORD: ${ALFA_BOT_DB_PASSWORD:-alfa-dev-bot-9d3f}
+      ALFA_WORKER_DB_PASSWORD: ${ALFA_WORKER_DB_PASSWORD:-alfa-dev-worker-5e8c}
+    entrypoint: [bash, /maintenance/roles.sh]
+    volumes:
+      - database-socket:/var/run/postgresql:ro
+      - ./deployment/postgres/001-roles.sh:/maintenance/roles.sh:ro
   migrate:
     <<: *application
     depends_on:
       db:
         condition: service_healthy
+      database-roles:
+        condition: service_completed_successfully
     environment:
       ALFA_DATABASE_URL: postgresql+psycopg://alfa_migrator:${ALFA_MIGRATOR_DB_PASSWORD:-alfa-dev-migrator-4b2a}@db:5432/alfa_course
     command: [alembic, upgrade, head]
@@ -139,5 +160,6 @@ services:
     command: [python, -m, pytest, -p, "no:cacheprovider", -q]
 volumes:
   database:
+  database-socket:
   corpus:
   index:
