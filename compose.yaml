@@ -106,6 +106,7 @@ services:
       ALFA_ADMIN_IDS: ${ALFA_ADMIN_IDS:-}
       ALFA_AB_PAID_OFFER: ${ALFA_AB_PAID_OFFER:-true}
       ALFA_WEBAPP_URL: ${ALFA_WEBAPP_URL:-}
+      ALFA_WEBAPP_TUNNEL_URL: http://tunnel:20241
       ALFA_WEBAPP_PORT: 8080
       ALFA_WEBAPP_DEV: ${ALFA_WEBAPP_DEV:-0}
       ALFA_CORPUS_PATH: /app/corpus/corpus.json
@@ -116,6 +117,15 @@ services:
     ports:
       - 127.0.0.1:8080:8080
     command: [python, -m, alpha_course.entrypoints.bot]
+  tunnel:
+    image: cloudflare/cloudflared:latest@sha256:b94b96edf2c9c4360f8879c8580cfaa99077f19c849ec595ca2f711b27d4f344
+    init: true
+    restart: unless-stopped
+    depends_on:
+      bot:
+        condition: service_started
+    # Metrics/discovery are internal to Compose; only the Mini App goes through HTTPS.
+    command: [tunnel, --no-autoupdate, --metrics, "0.0.0.0:20241", --protocol, http2, --url, "http://bot:8080"]
   worker:
     <<: *application
     depends_on:

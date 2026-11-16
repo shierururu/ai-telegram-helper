@@ -137,18 +137,38 @@ async def test_bot_rejects_missing_corpus_without_leaking_path_or_token(monkeypa
 
 
 @pytest.mark.asyncio
-async def test_bot_starts_webapp_and_sets_menu_button(monkeypatch):
+@pytest.mark.parametrize("automatic", [False, True])
+async def test_bot_starts_webapp_and_sets_menu_button(monkeypatch, automatic):
     client = MagicMock()
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=False)
     client.delete_my_commands = AsyncMock()
     client.set_my_commands = AsyncMock()
-    client.set_chat_menu_button = AsyncMock(side_effect=RuntimeError("telegram is down"))
+    client.set_chat_menu_button = AsyncMock(
+        side_effect=None if automatic else RuntimeError("telegram is down")
+    )
+    published, cancelled = asyncio.Event(), asyncio.Event()
+
+    async def watch(endpoint, publish):
+        assert automatic  # A configured public URL must take precedence over discovery.
+        assert endpoint == "http://tunnel:20241"
+        try:
+            await publish("https://app.example.test")
+            published.set()
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    async def poll(*args, **kwargs):
+        if automatic:
+            await asyncio.wait_for(published.wait(), timeout=1)
+
+    monkeypatch.setattr(bot, "watch_tunnel", watch)
     engine = SimpleNamespace(dispose=AsyncMock())
     dispatcher = SimpleNamespace(
         message=SimpleNamespace(middleware=MagicMock()),
         callback_query=SimpleNamespace(middleware=MagicMock()),
-        include_router=MagicMock(), start_polling=AsyncMock())
+        include_router=MagicMock(), start_polling=AsyncMock(side_effect=poll))
     runner = SimpleNamespace(cleanup=AsyncMock())
     start = AsyncMock(return_value=runner)
     monkeypatch.setattr(bot, "Bot", lambda **_: client)
@@ -166,7 +186,8 @@ async def test_bot_starts_webapp_and_sets_menu_button(monkeypatch):
             index_dir=Path("synthetic-index"),
             yandex_api_key=None,
             admin_set=frozenset,
-            webapp_url="https://app.example.test",
+            webapp_url=None if automatic else "https://app.example.test",
+            webapp_tunnel_url="http://tunnel:20241",
             webapp_dev=False,
             webapp_port=8081,
         )
@@ -174,5 +195,6 @@ async def test_bot_starts_webapp_and_sets_menu_button(monkeypatch):
     assert start.await_args.kwargs["port"] == 8081 and start.await_args.kwargs["dev"] is False
     menu = client.set_chat_menu_button.await_args.kwargs["menu_button"]
     assert menu.web_app.url == "https://app.example.test" and menu.text == "Навигатор"
+    assert cancelled.is_set() is automatic
     runner.cleanup.assert_awaited_once()
     engine.dispose.assert_awaited_once()

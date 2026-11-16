@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     index_dir: Path = Path("data/index")
     admin_ids: str = ""
     webapp_url: str | None = None
+    webapp_tunnel_url: str | None = None
     webapp_port: int = Field(default=8080, ge=1, le=65535)
     webapp_dev: bool = False
     ab_paid_offer: bool = True

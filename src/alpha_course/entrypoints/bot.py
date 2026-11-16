@@ -24,6 +24,7 @@ from alpha_course.infrastructure.engagement import EngagementStore
 from alpha_course.infrastructure.events import EventStore
 from alpha_course.infrastructure.experiments import Experiments
 from alpha_course.infrastructure.reminders import ReminderStore
+from alpha_course.infrastructure.tunnel import watch_tunnel
 from alpha_course.infrastructure.yandex import YandexAI
 from alpha_course.telegram.engagement import create_engagement_router
 from alpha_course.telegram.games import create_games_router
@@ -94,6 +95,8 @@ async def run(settings: Settings, *, check: bool = False) -> None:
     events = EventStore(engine)
     experiments = Experiments(events, enabled=getattr(settings, "ab_paid_offer", True))
     web_runner = None
+    tunnel_task = None
+    tunnel_endpoint = getattr(settings, "webapp_tunnel_url", None)
     try:
         await check_database(engine)
         dispatcher = Dispatcher(events_isolation=SimpleEventIsolation())
@@ -108,7 +111,7 @@ async def run(settings: Settings, *, check: bool = False) -> None:
             deadline_seconds=getattr(settings, "answer_deadline_seconds", 25.0),
         )
         profile_store = ProfileStore(engine)
-        dispatcher.include_router(create_menu_router(settings.webapp_url))
+        dispatcher.include_router(create_menu_router(lambda: settings.webapp_url))
         dispatcher.include_router(create_tools_router(assistant, profile_store, events, model))
         dispatcher.include_router(create_games_router(assistant, profile_store, events, model))
         dispatcher.include_router(
@@ -128,7 +131,7 @@ async def run(settings: Settings, *, check: bool = False) -> None:
                 experiments=experiments,
             )
         )
-        if settings.webapp_url or settings.webapp_dev:
+        if settings.webapp_url or tunnel_endpoint or settings.webapp_dev:
             web_runner = await run_webapp(
                 Services(
                     assistant=assistant,
@@ -157,8 +160,23 @@ async def run(settings: Settings, *, check: bool = False) -> None:
                     )
                 except Exception as error:
                     logger.warning("webapp_menu_button_failed error=%s", type(error).__name__)
+            elif tunnel_endpoint:
+                async def publish_tunnel_url(url: str) -> None:
+                    settings.webapp_url = url
+                    await bot.set_chat_menu_button(
+                        menu_button=MenuButtonWebApp(
+                            text="Навигатор", web_app=WebAppInfo(url=url)
+                        )
+                    )
+
+                tunnel_task = asyncio.create_task(watch_tunnel(tunnel_endpoint, publish_tunnel_url))
             logger.info("bot_started semantic=%s", knowledge.semantic_ready)
-            await dispatcher.start_polling(bot, close_bot_session=False, handle_signals=True)
+            try:
+                await dispatcher.start_polling(bot, close_bot_session=False, handle_signals=True)
+            finally:
+                if tunnel_task is not None:
+                    tunnel_task.cancel()
+                    await asyncio.gather(tunnel_task, return_exceptions=True)
     finally:
         if web_runner is not None:
             await web_runner.cleanup()

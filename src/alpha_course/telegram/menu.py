@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -88,14 +90,15 @@ def leaves_flow(text: str) -> bool:
     return text in MENU_TEXTS or text.startswith("/")
 
 
-def create_menu_router(webapp_url: str | None) -> Router:
+def create_menu_router(webapp_url: str | None | Callable[[], str | None]) -> Router:
     router = Router(name="menu")
 
     @router.message(F.text == APP)
     @router.message(Command("app"))
     async def open_app(message: Message, state: FSMContext) -> None:
         await state.update_data(ai_help=False, jn_wait=None)
-        if not webapp_url:
+        url = webapp_url() if callable(webapp_url) else webapp_url
+        if not url:
             await message.answer(
                 "📱 Мини-приложение пока не подключено. Всё главное есть здесь, в чате.",
                 reply_markup=MENU,
@@ -109,7 +112,7 @@ def create_menu_router(webapp_url: str | None) -> Router:
                 inline_keyboard=[
                     [
                         InlineKeyboardButton(
-                            text="📱 Открыть Навигатор", web_app=WebAppInfo(url=webapp_url)
+                            text="📱 Открыть Навигатор", web_app=WebAppInfo(url=url)
                         )
                     ]
                 ]
