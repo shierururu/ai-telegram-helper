@@ -1,0 +1,207 @@
+/* A4 print styles for «Бизнес-навигатор» documents and reports.
+   One system: serif for documents, sans for labels; one accent; hairlines, no boxes inside boxes.
+   Fonts are system ones (Liberation in Docker, Arial/Times locally): no external resources.
+   DejaVu closes every stack: Liberation 1.07 (Debian bookworm) has no rouble sign U+20BD, and
+   without a font that has it the PDF prints an empty box instead of the rouble sign. */
+
+@page {
+  size: A4;
+  margin: 20mm 20mm 24mm 20mm;
+  @bottom-left {
+    content: "Бизнес-навигатор";
+    font: 7.5pt "Liberation Sans", Arial, "DejaVu Sans", sans-serif;
+    color: #7a7f8e;
+    vertical-align: top;
+    padding-top: 6mm;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font: 7.5pt "Liberation Sans", Arial, "DejaVu Sans", sans-serif;
+    color: #7a7f8e;
+    vertical-align: top;
+    padding-top: 6mm;
+  }
+}
+
+:root {
+  --ink: #16181d;
+  --muted: #5b6070;
+  --faint: #7a7f8e;
+  --line: #d9d6cf;
+  --wash: #f5f4f0;
+  --accent: #0b6b52;
+  --accent-soft: #e1f3ec;
+  --warn: #8a4f00;
+  --warn-soft: #fff0d6;
+  --bad: #b3261e;
+  --bad-soft: #fce9e6;
+}
+
+@page report {
+  margin: 15mm 20mm 18mm 20mm;
+  @bottom-left { content: "Бизнес-навигатор · ориентировочный расчёт"; font: 7.5pt "Liberation Sans", Arial, "DejaVu Sans", sans-serif; color: #7a7f8e; vertical-align: top; padding-top: 5mm; }
+  @bottom-right { content: ""; }
+}
+.page-report { page: report; }
+
+* { box-sizing: border-box; }
+html { color: var(--ink); }
+body {
+  margin: 0;
+  font: 11pt/1.5 "Liberation Serif", "Times New Roman", Times, "DejaVu Serif", serif;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.sans { font-family: "Liberation Sans", Arial, Helvetica, "DejaVu Sans", sans-serif; }
+
+/* masthead */
+.mast {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 4mm;
+  border-bottom: 0.6pt solid var(--ink);
+  font: 700 8.5pt/1 "Liberation Sans", Arial, "DejaVu Sans", sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.brand { display: inline-flex; align-items: center; gap: 2.2mm; }
+.brand i {
+  display: inline-block;
+  width: 3.2mm;
+  height: 3.2mm;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.tag {
+  font-weight: 600;
+  color: var(--accent);
+  border: 0.6pt solid var(--accent);
+  border-radius: 10mm;
+  padding: 1.2mm 3mm;
+  letter-spacing: 0.06em;
+}
+
+/* document */
+h1 {
+  margin: 12mm 0 3mm;
+  font: 700 21pt/1.18 "Liberation Serif", "Times New Roman", "DejaVu Serif", serif;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+.doc-sub {
+  margin: 0 0 9mm;
+  text-align: center;
+  font: 9pt/1.3 "Liberation Sans", Arial, "DejaVu Sans", sans-serif;
+  color: var(--faint);
+}
+.doc { counter-reset: sec; }
+.sec { margin: 0 0 5.5mm; break-inside: avoid-page; }
+.sec.lead { margin-bottom: 6mm; }
+.sec h2 {
+  counter-increment: sec;
+  margin: 0 0 1.6mm;
+  font: 700 10.5pt/1.3 "Liberation Sans", Arial, "DejaVu Sans", sans-serif;
+  color: var(--ink);
+}
+.sec h2::before {
+  content: counter(sec) ".";
+  display: inline-block;
+  min-width: 6.5mm;
+  color: var(--accent);
+}
+.sec p { margin: 0 0 1.6mm; text-align: justify; hyphens: auto; orphans: 3; widows: 3; }
+.sec.lead p { text-align: left; }
+.sec.sign p { text-align: left; }
+.blank {
+  display: inline-block;
+  min-width: 26mm;
+  border-bottom: 0.6pt solid var(--ink);
+  height: 0.9em;
+  vertical-align: baseline;
+  margin: 0 0.5mm;
+}
+.notice {
+  margin-top: 8mm;
+  padding: 3.2mm 4mm;
+  border-left: 1.6pt solid var(--accent);
+  background: var(--wash);
+  font: 8.5pt/1.45 "Liberation Sans", Arial, "DejaVu Sans", sans-serif;
+  color: var(--muted);
+  break-inside: avoid;
+}
+.notice b { color: var(--ink); }
+
+/* report */
+.rep-title { margin: 6mm 0 1.5mm; text-align: left; font: 700 24pt/1.1 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; letter-spacing: -0.02em; }
+.rep-sub { margin: 0 0 4mm; font: 9.5pt/1.3 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; color: var(--muted); }
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 6mm;
+  padding: 3.5mm 0;
+  border-top: 0.6pt solid var(--line);
+  border-bottom: 0.6pt solid var(--line);
+}
+.hero .lbl { font: 600 8.5pt/1 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.hero .num { margin-top: 2.5mm; font: 700 36pt/1 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; letter-spacing: -0.03em; }
+.hero .num.ok { color: var(--accent); }
+.hero .num.tight { color: var(--warn); }
+.hero .num.loss { color: var(--bad); }
+.hero .num.fit-m { font-size: 28pt; }
+.hero .num.fit-s { font-size: 22pt; }
+.hero > div { min-width: 0; }
+.chip {
+  font: 700 8.5pt/1 "Liberation Sans", Arial, "DejaVu Sans", sans-serif;
+  padding: 2mm 3.4mm;
+  border-radius: 10mm;
+  white-space: nowrap;
+}
+.chip.ok { background: var(--accent-soft); color: var(--accent); }
+.chip.tight { background: var(--warn-soft); color: var(--warn); }
+.chip.loss { background: var(--bad-soft); color: var(--bad); }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 0; border-bottom: 0.6pt solid var(--line); }
+.kpi { min-width: 0; padding: 3mm 4mm 3mm 0; }
+.kpi + .kpi { padding-left: 4mm; border-left: 0.6pt solid var(--line); }
+.kpi .k { font: 600 7.5pt/1 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.kpi .v { margin-top: 2mm; font: 700 14pt/1.1 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; letter-spacing: -0.01em; }
+.kpi .v.fit-m { font-size: 11pt; }
+.kpi .v.fit-s { font-size: 9pt; }
+.kpi .s { margin-top: 1.2mm; font: 8pt/1.2 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; color: var(--faint); }
+
+.rep h3 {
+  margin: 5mm 0 2.2mm;
+  font: 700 8.5pt/1 "Liberation Sans", Arial, "DejaVu Sans", sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.even { display: flex; gap: 10mm; margin-bottom: 3mm; }
+.even .k { font: 8pt/1.2 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; color: var(--muted); }
+.even .v { font: 700 13pt/1.2 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; }
+.bar { position: relative; height: 3.2mm; border-radius: 2mm; background: var(--wash); border: 0.6pt solid var(--line); }
+.bar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2mm; background: var(--accent); }
+.bar .mark { position: absolute; top: -1.6mm; bottom: -1.6mm; width: 0.8pt; background: var(--ink); }
+.bar-note { margin: 2.5mm 0 0; font: 8.5pt/1.4 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; color: var(--muted); }
+
+table { width: 100%; border-collapse: collapse; font: 9pt/1.3 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; }
+th { text-align: left; font-weight: 600; font-size: 7.5pt; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); padding: 0 0 2mm; border-bottom: 0.6pt solid var(--ink); }
+td { padding: 1.4mm 0; border-bottom: 0.6pt solid var(--line); vertical-align: baseline; }
+th.r, td.r { text-align: right; padding-left: 3mm; }
+tr { break-inside: avoid; }
+td.pos { color: var(--accent); font-weight: 700; }
+td.neg { color: var(--bad); font-weight: 700; }
+td.best b { color: var(--accent); }
+.pill { display: inline-block; margin: 0.8mm 1.6mm 0 0; padding: 0.7mm 2mm; border-radius: 4mm; background: var(--accent-soft); color: var(--accent); font-size: 7pt; font-weight: 700; }
+.pill.cur { background: var(--wash); color: var(--muted); }
+.na { color: var(--faint); }
+.two { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 8mm; }
+.two > div { break-inside: avoid; }
+.two th.r, .two td.r { width: 22mm; white-space: nowrap; }.two td small { display: block; }
+.warn { break-inside: avoid; margin: 4mm 0 0; padding: 3mm 4mm; border-left: 1.6pt solid var(--warn); background: var(--warn-soft); font: 8.5pt/1.45 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; color: var(--warn); }
+.warn p { margin: 0 0 1mm; }
+.warn p:last-child { margin-bottom: 0; }
+.foot { break-before: avoid; margin-top: 4mm; font: 7.5pt/1.5 "Liberation Sans", Arial, "DejaVu Sans", sans-serif; color: var(--faint); }
+.bar-note + .even { margin-top: 3.5mm; }

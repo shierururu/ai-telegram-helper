@@ -1,0 +1,143 @@
+# Запуск: docker compose up --build   (нужен .env с токеном бота и ключом Yandex, см. env.example)
+# PostgreSQL не публикуется на хост и доступен только внутри сети Compose, поэтому
+# пароли БД ниже - фиксированные dev-значения; при желании их можно переопределить в .env.
+x-application: &application
+  build:
+    context: .
+    target: runtime
+  # Compose assigns a separate image tag to each service to avoid parallel export collisions.
+  init: true
+
+services:
+  db:
+    image: postgres:17@sha256:ff87138949ad9a46f32ff23bd6852b52ce024a13dffe9b4087be98292cdd3b4f
+    environment:
+      POSTGRES_DB: alfa_course
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alfa-dev-admin-7c1e}
+      ALFA_MIGRATOR_DB_PASSWORD: ${ALFA_MIGRATOR_DB_PASSWORD:-alfa-dev-migrator-4b2a}
+      ALFA_BOT_DB_PASSWORD: ${ALFA_BOT_DB_PASSWORD:-alfa-dev-bot-9d3f}
+      ALFA_WORKER_DB_PASSWORD: ${ALFA_WORKER_DB_PASSWORD:-alfa-dev-worker-5e8c}
+    volumes:
+      - database:/var/lib/postgresql/data
+      - ./deployment/postgres/001-roles.sh:/docker-entrypoint-initdb.d/001-roles.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U postgres -d alfa_course']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  migrate:
+    <<: *application
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ALFA_DATABASE_URL: postgresql+psycopg://alfa_migrator:${ALFA_MIGRATOR_DB_PASSWORD:-alfa-dev-migrator-4b2a}@db:5432/alfa_course
+    command: [alembic, upgrade, head]
+  corpus-permissions:
+    build:
+      context: .
+      target: source-import
+    # Only the named corpus volume is mounted; no archive or service credentials.
+    user: "0:0"
+    network_mode: none
+    entrypoint: [sh, -c]
+    command: ["chown 10001:10001 /corpus && chmod 0700 /corpus"]
+    volumes:
+      - corpus:/corpus
+  prepare:
+    depends_on:
+      corpus-permissions:
+        condition: service_completed_successfully
+    build:
+      context: .
+      target: source-import
+    image: alpha-course-source-import-local
+    init: true
+    network_mode: none
+    volumes:
+      - type: bind
+        source: ${ALFA_SOURCE_ARCHIVE:-./data/private/alfa_course_hackathon.backup}
+        target: /source/archive.backup
+        read_only: true
+        bind:
+          create_host_path: false
+      - corpus:/corpus
+  bot:
+    <<: *application
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      prepare:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    environment:
+      ALFA_DATABASE_URL: postgresql+psycopg://alfa_bot:${ALFA_BOT_DB_PASSWORD:-alfa-dev-bot-9d3f}@db:5432/alfa_course
+      ALFA_TELEGRAM_BOT_TOKEN: ${ALFA_TELEGRAM_BOT_TOKEN:-}
+      ALFA_YANDEX_API_KEY: ${ALFA_YANDEX_API_KEY:-}
+      ALFA_YANDEX_FOLDER_ID: ${ALFA_YANDEX_FOLDER_ID:-}
+      ALFA_YANDEX_REASONING_EFFORT: ${ALFA_YANDEX_REASONING_EFFORT:-none}
+      ALFA_YANDEX_TIMEOUT_SECONDS: ${ALFA_YANDEX_TIMEOUT_SECONDS:-20}
+      ALFA_ANSWER_DEADLINE_SECONDS: ${ALFA_ANSWER_DEADLINE_SECONDS:-25}
+      ALFA_LOG_LEVEL: ${ALFA_LOG_LEVEL:-INFO}
+      ALFA_ADMIN_IDS: ${ALFA_ADMIN_IDS:-}
+      ALFA_AB_PAID_OFFER: ${ALFA_AB_PAID_OFFER:-true}
+      ALFA_WEBAPP_URL: ${ALFA_WEBAPP_URL:-}
+      ALFA_WEBAPP_PORT: 8080
+      ALFA_WEBAPP_DEV: ${ALFA_WEBAPP_DEV:-0}
+      ALFA_CORPUS_PATH: /app/corpus/corpus.json
+      ALFA_INDEX_DIR: /app/index
+    volumes:
+      - corpus:/app/corpus:ro
+      - index:/app/index
+    ports:
+      - 127.0.0.1:8080:8080
+    command: [python, -m, alpha_course.entrypoints.bot]
+  worker:
+    <<: *application
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    environment:
+      ALFA_DATABASE_URL: postgresql+psycopg://alfa_worker:${ALFA_WORKER_DB_PASSWORD:-alfa-dev-worker-5e8c}@db:5432/alfa_course
+      ALFA_LOG_LEVEL: ${ALFA_LOG_LEVEL:-INFO}
+      ALFA_TELEGRAM_BOT_TOKEN: ${ALFA_TELEGRAM_BOT_TOKEN:-}
+      ALFA_WORKER_POLL_INTERVAL_SECONDS: ${ALFA_WORKER_POLL_INTERVAL_SECONDS:-5}
+    command: [python, -m, alpha_course.entrypoints.worker]
+  check:
+    <<: *application
+    profiles: [tools]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      ALFA_DATABASE_URL: postgresql+psycopg://alfa_bot:${ALFA_BOT_DB_PASSWORD:-alfa-dev-bot-9d3f}@db:5432/alfa_course
+    command: [python, -m, alpha_course.entrypoints.check]
+  tests:
+    <<: *application
+    profiles: [test]
+    build:
+      context: .
+      target: test
+    image: alpha-course-test-local
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      ALFA_TEST_DATABASE_URL: postgresql+psycopg://alfa_migrator:${ALFA_MIGRATOR_DB_PASSWORD:-alfa-dev-migrator-4b2a}@db:5432/alfa_course
+      ALFA_TEST_BOT_DATABASE_URL: postgresql+psycopg://alfa_bot:${ALFA_BOT_DB_PASSWORD:-alfa-dev-bot-9d3f}@db:5432/alfa_course
+      ALFA_TEST_WORKER_DATABASE_URL: postgresql+psycopg://alfa_worker:${ALFA_WORKER_DB_PASSWORD:-alfa-dev-worker-5e8c}@db:5432/alfa_course
+    command: [python, -m, pytest, -p, "no:cacheprovider", -q]
+volumes:
+  database:
+  corpus:
+  index:

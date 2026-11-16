@@ -1,0 +1,40 @@
+# Repository metadata and local tool credentials
+.git
+.agents
+.codex
+.aws
+
+# Secrets; env.example remains part of the build context
+.env
+.env.*
+.envrc
+
+# Private inputs, derived data and local runtime state
+/data/
+/artifacts/private/
+/.local/
+**/*.backup
+**/*.dump
+CASE.pdf
+
+# Local Python environments and test caches
+.venv
+venv
+env
+ENV
+**/__pycache__/
+**/*.py[codz]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.hypothesis/
+.tox
+.nox
+.coverage
+.coverage.*
+htmlcov
+
+# Build products and local packaging output
+/dist/
+/build/
+**/*.egg-info/
