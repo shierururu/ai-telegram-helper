@@ -4,6 +4,8 @@
 
 [Видеопрезентация проекта](https://disk.360.yandex.ru/i/NHD9zJcsHbsLrQ)
 
+[Посмотреть презентацию проекта в PDF](business-navigator.pdf)
+
 ## 1. Что потребуется
 
 - Docker Engine или Docker Desktop с **Docker Compose v2** и запущенным Docker daemon. В Windows используйте терминал WSL 2 с включённой интеграцией Docker Desktop. Команды ниже рассчитаны на Bash.
